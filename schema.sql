@@ -1,7 +1,8 @@
 CREATE TABLE IF NOT EXISTS tests (
   id integer PRIMARY KEY,
   date timestamp NOT NULL,
-  description text
+  description text,
+  UNIQUE (date, description)
 );
 
 CREATE TABLE IF NOT EXISTS students (
@@ -14,13 +15,11 @@ CREATE TABLE IF NOT EXISTS students (
 CREATE TABLE IF NOT EXISTS questions (
   id integer PRIMARY KEY,
   test_id integer NOT NULL,
-  parent_id integer,
   max_points float NOT NULL,
+  rank integer NOT NULL, -- INFO: relative to whole test
   name text,
-  rank integer NOT NULL,
   FOREIGN KEY (test_id) REFERENCES tests (id),
-  FOREIGN KEY (parent_id) REFERENCES questions (id),
-  UNIQUE (test_id, parent_id, rank)
+  UNIQUE (test_id, rank)
 );
 
 CREATE TABLE IF NOT EXISTS results (

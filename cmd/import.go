@@ -4,22 +4,31 @@ Copyright © 2025 Jean-Léon HENRY
 package cmd
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
+	"github.com/JeanLeonHenry/gonotes/db"
 	"github.com/JeanLeonHenry/gonotes/importer"
+	"github.com/JeanLeonHenry/gonotes/parser"
 	"github.com/JeanLeonHenry/gonotes/utils"
 	"github.com/spf13/cobra"
+)
+
+const (
+	studentsArg = "students"
+	resultsArg  = "results"
 )
 
 // importCmd represents the import command
 var importCmd = &cobra.Command{
 	Use:   "import {students|results} file.csv",
-	Short: "Import data in the database, such as student names or test results.",
+	Short: "Import data in the database, such as student names or test results. You should import students before importing results",
 	Args:  cobra.ExactArgs(2),
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		if args[0] == "students" {
+		if args[0] == studentsArg {
 			names, err := importer.GetStudentsNamesFromCSV(args[1])
 			if err != nil {
 				log.Fatalf("Error reading csv file : %v", err)
@@ -34,41 +43,75 @@ var importCmd = &cobra.Command{
 			}
 			log.Printf("Successful write.")
 
-		} else if args[0] == "results" {
+		} else if args[0] == resultsArg {
+			// Validate input
 			records, err := importer.ValidateResultsCSV(args[1])
 			if err != nil {
-				log.Fatalln("Error importing results : ", err)
+				log.Fatalln("Error validating input file:", err)
 			}
-			fmt.Println(records)
-			// TODO: finish results
-
-			// class := utils.AskUser("Class? ", utils.NotAllSpaces)
-			// test_date := utils.AskUser("Test date ? ", utils.NotAllSpaces)
-			// for _, record := range records[2:] {
-			// 	// Look up student
-			// 	studentName := record[0]
-			// 	studentId, err := queries.GetStudentId(ctx, db.GetStudentIdParams{
-			// 		Name:  studentName,
-			// 		Class: class,
-			// 	})
-			// 	if err != nil {
-			// 		log.Fatalln("Error looking up student : ", err)
-			// 	}
-			// 	// Create test
-			//
-			// 	// Create results based on the record
-			// 	for questionIndex, mark := range record[1:] {
-			// 		points, err := strconv.ParseFloat(mark, 64)
-			// 		if err != nil {
-			// 			log.Fatalf("Parsing %v's record : couldn't parse %v as points", studentName, mark)
-			// 		}
-			// 		queries.CreateResult(ctx, db.CreateResultParams{
-			// 			StudentID:  studentId,
-			// 			QuestionID: questionIds[questionIndex],
-			// 			Points:     points,
-			// 		})
-			// 	}
-			// }
+			currentTest := parser.Parse(records)
+			fmt.Println("Records parsed into\n", currentTest)
+			// Ask for test info
+			class := utils.AskUser("Class? ", utils.NotAllSpaces)
+			testDate := utils.AskUser("Test date (YYYY-MM-DD)? ", utils.NotAllSpaces)
+			if err != nil {
+				log.Fatalln("Input error:", err)
+			}
+			parsedDate, err := time.Parse(time.DateOnly, testDate)
+			if err != nil {
+				log.Fatalln("Wrong date input")
+			}
+			sqlDesc := sql.NullString{
+				String: utils.AskUser("Test description: ", utils.NotAllSpaces),
+				Valid:  true, // HACK: ?
+			}
+			// Create test
+			testId, err := queries.CreateTestAndReturnID(ctx, db.CreateTestAndReturnIDParams{
+				Date:        parsedDate,
+				Description: sqlDesc,
+			})
+			if err != nil {
+				log.Fatalln("Error creating test", err)
+			}
+			for _, currentResult := range currentTest.Results {
+				// Find student
+				studentName := currentTest.StudentsNames[currentResult.StudentIndex]
+				// PERF: cache the id to improve speed
+				studentId, err := queries.GetStudentId(ctx, db.GetStudentIdParams{
+					Name:  studentName,
+					Class: class,
+				})
+				if err != nil {
+					// INFO: we assume the student must have been imported beforehand
+					log.Fatalln("Error looking up student: ", err)
+				}
+				log.Println("Found student", studentName, "in class", class, "at id", studentId)
+				// Find question, create if needed
+				questionName := currentTest.QuestionsNames[currentResult.QuestionIndex]
+				questionId, err := queries.GetQuestionID(ctx, db.GetQuestionIDParams{
+					Name:   sql.NullString{String: questionName, Valid: true},
+					TestID: testId,
+				})
+				if err != nil {
+					if err == sql.ErrNoRows {
+						log.Println("found no question with question name", questionName)
+						questionId, err = queries.CreateQuestionAndReturnID(ctx, db.CreateQuestionAndReturnIDParams{
+							TestID:    testId,
+							MaxPoints: currentTest.PointTotals[currentResult.QuestionIndex],
+							Rank:      int64(currentResult.QuestionIndex),
+							Name:      sql.NullString{String: questionName, Valid: true},
+						})
+					} else {
+						log.Fatalln("Error looking up question: ", err)
+					}
+				}
+				log.Println("Found question", questionName, "at id", questionId)
+				queries.CreateResult(ctx, db.CreateResultParams{
+					StudentID:  studentId,
+					QuestionID: questionId,
+					Points:     0,
+				})
+			}
 		}
 	},
 }

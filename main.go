@@ -21,10 +21,12 @@ func main() {
 	ctx := context.Background()
 
 	// INFO: will create the file if it doesn't exist
-	DB, err := sql.Open("sqlite", "test.db")
+	const dbName = "test.db"
+	DB, err := sql.Open("sqlite", dbName)
 	if err != nil {
 		log.Fatalln(err)
 	}
+	log.Printf("using %v as db", dbName)
 
 	// // FIX: create tables, will error if they exist
 	if _, err := DB.ExecContext(ctx, ddl); err != nil {
