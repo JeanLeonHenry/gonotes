@@ -22,12 +22,15 @@ func AskUser(prompt string, isValid func(string) bool) string {
 	return userInput
 }
 
-func AskUserAndSuggest(prompt string, isValid func(string) bool, suggestions []string) (string, error) {
-	fmt.Print(prompt)
-	choiceIndex, err := fzf.Find(suggestions, func(i int) string { return suggestions[i] })
-	choice := fmt.Sprint(suggestions[choiceIndex])
-	if err != nil || !isValid(choice) {
+func AskUserAndSuggest[T any](prompt string, isValid func(string) bool, suggestions []T, itemFunc func(int) string, opts ...fzf.Option) (string, error) {
+	opts = append(opts, fzf.WithPromptString(prompt))
+	choiceIndex, err := fzf.Find(suggestions, itemFunc, opts...)
+	if err != nil {
 		return "", err
+	}
+	choice := fmt.Sprint(suggestions[choiceIndex])
+	if !isValid(choice) {
+		return "", fmt.Errorf("Choice isn't valid")
 	}
 	return choice, nil
 }

@@ -5,8 +5,15 @@ WHERE class = ?;
 -- name: GetClasses :many
 SELECT class FROM students GROUP BY class;
 
--- name: GetTestInfo :many
-SELECT date, description FROM tests;
+-- name: GetClassFromTest :many
+SELECT DISTINCT s.class
+FROM results r
+JOIN questions q ON r.question_id = q.id
+JOIN students s ON r.student_id = s.id
+WHERE q.test_id = ?;
+
+-- name: GetTest :many
+SELECT * FROM tests;
 
 -- name: GetTestId :one
 SELECT id FROM tests
@@ -23,6 +30,9 @@ WHERE name = ? AND class = ?;
 -- name: GetQuestionID :one
 SELECT id FROM questions
 WHERE test_id = ? AND name = ?;
+
+
+-- CREATE STATEMENTS --
 
 -- name: CreateStudent :exec
 INSERT INTO students (name, class) VALUES (?, ?);
