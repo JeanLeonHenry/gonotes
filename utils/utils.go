@@ -11,26 +11,39 @@ import (
 )
 
 func NotAllSpaces(s string) bool { return strings.TrimSpace(s) != "" }
+func TrueFunc[T any](a T) bool   { return true }
 
 // AskUser prompts the user for input and calls os.Exit if isn't valid
 func AskUser(prompt string, isValid func(string) bool) string {
 	fmt.Print(prompt)
 	var userInput string
-	if _, err := fmt.Scanln(&userInput); err != nil || !isValid(userInput) {
-		log.Fatalln("Quitting.")
+	if _, err := fmt.Scanln(&userInput); err != nil {
+		// FIX: input with space should be accepted
+		log.Fatalln("Invalid input, probably too many values.")
+	}
+	if !isValid(userInput) {
+		log.Fatalln("Invalid input for prompt", prompt)
 	}
 	return userInput
 }
 
-func AskUserAndSuggest[T any](prompt string, isValid func(string) bool, suggestions []T, itemFunc func(int) string, opts ...fzf.Option) (string, error) {
+func AskUserAndSuggest[T any](
+	prompt string,
+	suggestions []T,
+	isValid func(T) bool,
+	itemFunc func(int) string,
+	opts ...fzf.Option,
+) (T, error) {
 	opts = append(opts, fzf.WithPromptString(prompt))
 	choiceIndex, err := fzf.Find(suggestions, itemFunc, opts...)
+
+	var null T
 	if err != nil {
-		return "", err
+		return null, err
 	}
-	choice := fmt.Sprint(suggestions[choiceIndex])
+	choice := suggestions[choiceIndex]
 	if !isValid(choice) {
-		return "", fmt.Errorf("Choice isn't valid")
+		return null, fmt.Errorf("%v isn't a valid choice", choice)
 	}
 	return choice, nil
 }
