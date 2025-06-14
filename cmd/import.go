@@ -49,21 +49,18 @@ var importCmd = &cobra.Command{
 			if err != nil {
 				log.Fatalln("Error validating input file:", err)
 			}
-			currentTest := parser.Parse(records)
+			currentTest := parser.TestFromRecords(records)
 			fmt.Println("Records parsed into\n", currentTest)
 			// Ask for test info
-			class := utils.AskUser("Class? ", utils.NotAllSpaces)
+			class := utils.AskUser("Class? ", utils.NotAllSpaces) // TODO: use suggestions from db
 			testDate := utils.AskUser("Test date (YYYY-MM-DD)? ", utils.NotAllSpaces)
-			if err != nil {
-				log.Fatalln("Input error:", err)
-			}
 			parsedDate, err := time.Parse(time.DateOnly, testDate)
 			if err != nil {
 				log.Fatalln("Wrong date input")
 			}
 			sqlDesc := sql.NullString{
 				String: utils.AskUser("Test description: ", utils.NotAllSpaces),
-				Valid:  true, // HACK: ?
+				Valid:  true,
 			}
 			// Create test
 			testId, err := queries.CreateTestAndReturnID(ctx, db.CreateTestAndReturnIDParams{
@@ -94,7 +91,7 @@ var importCmd = &cobra.Command{
 				})
 				if err != nil {
 					if err == sql.ErrNoRows {
-						log.Println("found no question with question name", questionName)
+						log.Println("found no question with question name", questionName, "\nCreating it.")
 						questionId, err = queries.CreateQuestionAndReturnID(ctx, db.CreateQuestionAndReturnIDParams{
 							TestID:    testId,
 							MaxPoints: currentTest.PointTotals[currentResult.QuestionIndex],
@@ -109,7 +106,7 @@ var importCmd = &cobra.Command{
 				queries.CreateResult(ctx, db.CreateResultParams{
 					StudentID:  studentId,
 					QuestionID: questionId,
-					Points:     0,
+					Points:     currentResult.Points,
 				})
 			}
 		}
