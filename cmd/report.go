@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JeanLeonHenry/gonotes/parser"
 	"github.com/JeanLeonHenry/gonotes/utils"
 	"github.com/spf13/cobra"
 
@@ -29,14 +30,15 @@ var reportCmd = &cobra.Command{
 
 		choice, _ := utils.AskUserAndSuggest(
 			"Pick test > ",
-			utils.NotAllSpaces,
 			tests,
+			utils.TrueFunc, // TODO: maybe implement a real validation step ?
 			func(i int) string {
-				t := tests[i]
-				if t.Description.Valid {
-					return fmt.Sprintf("%v - %v", tests[i].Description.String, tests[i].Date.Format(time.RFC822))
+				currentTest := tests[i]
+				date := currentTest.Date.Format(time.RFC822)
+				if currentTest.Description.Valid {
+					return fmt.Sprintf("%v - %v", currentTest.Description.String, date)
 				} else {
-					return fmt.Sprintf("%v", tests[i].Date.Format(time.RFC822))
+					return fmt.Sprintf("%v", date)
 				}
 			},
 			fzf.WithPreviewWindow(func(i, width, height int) string {
@@ -50,6 +52,11 @@ var reportCmd = &cobra.Command{
 				return strings.Join(classes, "\n")
 			}))
 		fmt.Println("chose", choice)
+		test, err := parser.TestFromDB(queries, ctx, choice)
+		if err != nil {
+			log.Fatalf("Error parsing test from : %v", err)
+		}
+		test.ExportReport()
 	},
 }
 

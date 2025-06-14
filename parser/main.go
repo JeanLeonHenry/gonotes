@@ -1,6 +1,12 @@
 package parser
 
-import "strconv"
+import (
+	"context"
+	"fmt"
+	"strconv"
+
+	"github.com/JeanLeonHenry/gonotes/db"
+)
 
 type Result struct {
 	StudentIndex  int
@@ -16,9 +22,9 @@ type Test struct {
 	Desc           string
 }
 
-// Parse assumes records have been validated
+// TestFromRecords assumes records have been validated
 // The returned Test object has students and questions numbered from 0
-func Parse(records [][]string) Test {
+func TestFromRecords(records [][]string) Test {
 	// Parse second line
 	var pointsTotals []float64
 	for _, val := range records[1][1:] {
@@ -50,4 +56,23 @@ func Parse(records [][]string) Test {
 		PointTotals:    pointsTotals,
 		Results:        results,
 	}
+}
+
+// Am I recreating an ORM ?
+
+// TestFromDB gathers the test info from db into a struct
+func TestFromDB(queries *db.Queries, ctx context.Context, t db.Test) (Test, error) {
+	var test Test
+	dbRow, err := queries.GetResultsFromTest(ctx, t.ID)
+	if err != nil {
+		return Test{}, err
+	}
+	fmt.Println(dbRow)
+	// TODO: finish up
+	return test, nil
+}
+
+func (t *Test) ExportReport() {
+	// TODO: print individual reports in a pretty pdf
+	fmt.Println("Exporting report.")
 }

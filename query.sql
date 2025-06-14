@@ -23,6 +23,14 @@ WHERE date = ? AND description = ?;
 SELECT * FROM results
 WHERE results.student_id = ?;
 
+-- name: GetResultsFromTest :many
+SELECT s.name as student_name, s.class, q.name as question_name, q.rank, q.max_points, r.points
+FROM results r
+JOIN questions q ON r.question_id = q.id
+JOIN students s ON r.student_id = s.id
+WHERE q.test_id = ?
+ORDER BY s.name, q.rank;
+
 -- name: GetStudentId :one
 SELECT id from students
 WHERE name = ? AND class = ?;
