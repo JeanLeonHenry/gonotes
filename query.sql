@@ -29,7 +29,7 @@ FROM results r
 JOIN questions q ON r.question_id = q.id
 JOIN students s ON r.student_id = s.id
 WHERE q.test_id = ?
-ORDER BY s.name, q.rank;
+ORDER BY s.name, q.name;
 
 -- name: GetStudentId :one
 SELECT id from students
